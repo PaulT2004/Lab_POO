@@ -1,0 +1,138 @@
+import os
+from datetime import datetime
+
+class Folder:
+    def __init__(self, directoryPath):
+        self._directoryPath = directoryPath
+        self._snapshot = {}
+        self._snapshotTime = None
+
+    def _fileList(self, extensions=None):
+        files = []
+        try:
+            with os.scandir(self._directoryPath) as checks:
+                for check in checks:
+                    if check.is_file():
+                        if extensions is None or check.name.endswith(extensions):
+                            fileInfo = check.stat()
+                            created = datetime.fromtimestamp(fileInfo.st_ctime).strftime("%d-%m-%Y %H:%M:%S")
+                            updatedFile = datetime.fromtimestamp(fileInfo.st_mtime).strftime("%d-%m-%Y %H:%M:%S")
+                            files.append({
+                                "fileName": check.name,
+                                "extension": check.name.split('.')[-1],
+                                "created": created,
+                                "updatedFile": updatedFile,
+                                "size": fileInfo.st_size,
+                                "path": check.path,
+                                "updatedTime": fileInfo.st_mtime
+                            })
+        except FileNotFoundError:
+            print("The directory doesn't exist.")
+        return files
+
+    def snapshotUpdate(self):
+        self._snapshot = {file['fileName']: {"updatedTime": file["updatedTime"], "size": file["size"]} for file in self._fileList()}
+        self._snapshotTime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print("Snapshot updated\n")
+
+    def checkChanges(self):
+        if not self._snapshot:
+            print("No snapshot exists. Please update the snapshot first.")
+            return
+
+        print("Current status:")
+        currentFiles = self._fileList()
+        currentState = {file["fileName"]: {"updatedTime": file["updatedTime"], "size": file["size"]} for file in currentFiles}
+
+        for fileName, snapshotData in self._snapshot.items():
+            if fileName in currentState:
+                currentData = currentState[fileName]
+                if currentData != snapshotData:
+                    print(f"{fileName} got changed")
+                else:
+                    print(f"{fileName} is clean")
+            else:
+                print(f"{fileName} got removed")
+
+        for fileName in currentState.keys():
+            if fileName not in self._snapshot:
+                print(f"{fileName} has been added")
+
+class ImageFiles(Folder):
+    def imageFile(self, fileName):
+        files = super()._fileList((".jpg", ".png"))
+        for file in files:
+            if file['fileName'] == fileName:
+                print(f"\nFile name: {fileName}\nExtension: {file['extension']}\nCreated: {file['created']}\nUpdated: {file['updatedFile']}\nSize: {file['size']} bytes\n")
+                return
+        print("File not found")
+
+class TextFiles(Folder):
+    def textFile(self, fileName):
+        files = super()._fileList((".txt",))
+        for file in files:
+            if file['fileName'] == fileName:
+                textPath = file['path']
+                try:
+                    with open(textPath, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                        lineCount = len(lines)
+                        wordCount = sum(len(line.split()) for line in lines)
+                        characterCount = sum(len(line) for line in lines)
+                    print(f"\nFile name: {fileName}\nExtension: {file['extension']}\nCreated: {file['created']}\nUpdated: {file['updatedFile']}\nLines: {lineCount}\nWords: {wordCount}\nCharacters: {characterCount}\n")
+                except Exception as error:
+                    print("Error processing file")
+                return
+        print("File not found")
+
+class ProgramFiles(Folder):
+    def programFile(self, fileName):
+        files = super()._fileList((".cbp",))
+        for file in files:
+            if file['fileName'] == fileName:
+                programPath = file['path']
+                try:
+                    with open(programPath, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                        lineCount = len(lines)
+                        classCount = sum(1 for line in lines if "Class " in line)
+                        methodCount = sum(1 for line in lines if "void " in line)
+                    print(f"\nFile name: {fileName}\nExtension: .{file['extension']}\nCreated: {file['created']}\nUpdated: {file['updatedFile']}\nLines: {lineCount}\nClasses: {classCount}\nMethods: {methodCount}\n")
+                except Exception as error:
+                    print("Error processing file")
+                return
+        print("File not found")
+
+folder = Folder(r"C:\Users\Admin\Documents\GitHub\Lab_POO\Lab3")
+imageFiles = ImageFiles(folder._directoryPath)
+textFiles = TextFiles(folder._directoryPath)
+programFiles = ProgramFiles(folder._directoryPath)
+
+while True:
+    print("Main menu:")
+    print("1: Commit")
+    print("2: Info")
+    print("3: Status")
+    print("4: Exit")
+
+    userInput = input("Choose an option: ").strip()
+    if userInput == "1":
+        folder.snapshotUpdate()
+    elif userInput == "2":
+        userFile = input("\nEnter the filename with extension: ").strip()
+        if userFile.endswith((".jpg", ".png")):
+            imageFiles.imageFile(userFile)
+        elif userFile.endswith(".txt"):
+            textFiles.textFile(userFile)
+        elif userFile.endswith(".cbp"):
+            programFiles.programFile(userFile)
+        else:
+            print("File not supported.")
+    elif userInput == "3":
+        folder.checkChanges()
+    elif userInput == "4":
+        break
+    else:
+        print("You inserted something else")
+
+
